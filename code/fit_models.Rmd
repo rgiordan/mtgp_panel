@@ -10,6 +10,15 @@ library(readxl)
 library(tidyverse)
 library(cmdstanr)
 library(posterior)
+
+# https://github.com/ebenmichael/augsynth
+install_augsynth <- FALSE
+if (install_augsynth) {
+  library(devtools)
+  devtools::install_github("ebenmichael/augsynth")
+} else {
+  library(augsynth)
+}
 ```
 
 
