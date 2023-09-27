@@ -8,17 +8,23 @@ knitr::opts_chunk$set(dev = "pdf")
 library(haven)
 library(readxl)
 library(tidyverse)
-library(cmdstanr)
 library(posterior)
+
+install_cmdstan <- FALSE
+if (install_cmdstan) {
+  install.packages("cmdstanr", repos = c("https://mc-stan.org/r-packages/", getOption("repos")))
+  install_cmdstan()
+}
+library(cmdstanr)
+
 
 # https://github.com/ebenmichael/augsynth
 install_augsynth <- FALSE
 if (install_augsynth) {
   library(devtools)
   devtools::install_github("ebenmichael/augsynth")
-} else {
-  library(augsynth)
 }
+library(augsynth)
 ```
 
 
