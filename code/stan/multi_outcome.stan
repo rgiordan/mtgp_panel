@@ -7,14 +7,14 @@ data {
   matrix[N, D] y[num_outcomes];         // target variable
   matrix[N, D] inv_population;
   int num_treated;
-  int control_idx[N * D - num_treated];
+  array[N * D - num_treated] int control_idx;
 }
 transformed data {
   //matrix[N, D] y_rate = y .* inv_population;
   // Normalize data
   real xmean = mean(x);
   real xsd = sd(x);
-  real xn[N] = to_array_1d((x - xmean)/xsd);
+  array[N] real xn = to_array_1d((x - xmean)/xsd);
   real sigma_intercept = 0.1;
   vector[N] jitter = rep_vector(1e-9, N);
 }
@@ -28,7 +28,7 @@ parameters {
   vector[N] z_global[num_outcomes];
   matrix[N, n_k_f] z_f;
   matrix[n_k_f, D] k_f[num_outcomes];
-  real global_offset[num_outcomes];
+  array[num_outcomes] real global_offset;
 }
 
 model {
