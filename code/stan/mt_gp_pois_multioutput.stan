@@ -24,13 +24,15 @@ parameters {
   real<lower=0> lengthscale_global;
   real<lower=0> sigma_global;
   //cholesky_factor_corr[num_outcomes] global_cov;
-  vector[N] z_global[num_outcomes];
-
+  //vector[N] z_global[num_outcomes];
+  array[N] vector[num_outcomes] z_global;
 
   matrix[N, n_k_f] z_f;
-  matrix[n_k_f, n_k_d] k_f[num_outcomes];
+  //matrix[n_k_f, n_k_d] k_f[num_outcomes];
+  array[num_outcomes] matrix[n_k_f, n_k_d]  k_f;
   matrix[n_k_d, D] k_d;
-  row_vector[D] intercepts[num_outcomes];
+  //row_vector[D] intercepts[num_outcomes];
+  array[num_outcomes] row_vector[D] intercepts;
 }
 model {
   // covariances and Cholesky decompositions
@@ -38,8 +40,10 @@ model {
   matrix[N, N] L_f = cholesky_decompose(add_diag(K_f, jitter));
   matrix[N, N] K_global = gp_exp_quad_cov(xn, sigma_global, lengthscale_global);
   matrix[N, N] L_global = cholesky_decompose(add_diag(K_global, jitter));
-  matrix[N, D] f[num_outcomes];
-  vector[N] f_global[num_outcomes];
+  //matrix[N, D] f[num_outcomes];
+  //vector[N] f_global[num_outcomes];
+  array[num_outcomes] matrix[N, D] f;
+  array[num_outcomes] vector[N] f_global;
 
   for(i in 1:num_outcomes) {
     f[i] = L_f * z_f * k_f[i] * k_d + rep_matrix(L_global * z_global[i], D);
@@ -66,7 +70,7 @@ model {
   }
 }
 generated quantities {
-  matrix[N, D] f[num_outcomes];
+  array[num_outcomes] matrix[N, D] f;
   {
     // covariances and Cholesky decompositions
     matrix[N, N] K_f = gp_exp_quad_cov(xn, sigma_f, lengthscale_f);

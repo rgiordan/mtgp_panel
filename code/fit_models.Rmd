@@ -90,7 +90,7 @@ FitIfNotSaved <- function(fit_fun, filename, force=FALSE) {
 # Test
 #foo <- FitIfNotSaved(function() { return(1) }, "/tmp/test.RDS", force=FALSE)
 
-force_refit <- TRUE
+force_refit <- FALSE
 
 ```
 
@@ -109,12 +109,15 @@ FitFun <- function() {
 }
 fit_ranks_pois <- FitIfNotSaved(FitFun, "mtgp_fits_poisson.RDS", force=force_refit)
 
+tic <- Sys.time()
 pops <- make_stan_data(quo(homicide), quo(treated), quo(State), quo(year), 2007,
                        crimes %>% filter(year >= start_year))$pop
 posts_pois <- lapply(fit_ranks_pois, get_posterior_pois)
 post_pred_ranks_pois <- lapply(posts_pois, get_post_pred_samples, unit=State, 
                                time=year,
                                data = crimes %>% filter(year >= start_year))
+pred_time <- Sys.time() - tic
+print(pred_time) # Not too long compared with MCMC
 
 
 ```
@@ -153,32 +156,36 @@ FitFun <- function() {
                       trt = treated,
                       unit = State, time = year, t_int = 2007,
                       data = crimes %>% filter(year >= start_year))
-  
-  pops <- make_stan_data(quo(homicide), quo(treated), quo(State), quo(year), 2007,
-                         crimes %>% filter(year >= start_year))$pop
-  
-  posts_gauss <- lapply(fit_ranks_gauss, get_posterior_homoskedastic, pops = pops)
-  
-  post_pred_ranks_gauss <- lapply(posts_gauss, get_post_pred_samples, unit = State,
-                            time = year,
-                            data = crimes %>% filter(year >= start_year))
-  names(post_pred_ranks_gauss) <- ranks
-  
+  return(fit_ranks_gauss)  
 }
+fit_ranks_gauss <- FitIfNotSaved(FitFun, "mtgp_fits_homoskedastic.RDS", force=force_refit)
 
-saveRDS(post_pred_ranks_gauss, "mtgp_fits_homoskedastic.RDS")
+pops <- make_stan_data(quo(homicide), quo(treated), quo(State), quo(year), 2007,
+                       crimes %>% filter(year >= start_year))$pop
+posts_gauss <- lapply(fit_ranks_gauss, get_posterior_homoskedastic, pops = pops)
+post_pred_ranks_gauss <- lapply(posts_gauss, get_post_pred_samples, unit = State,
+                          time = year,
+                          data = crimes %>% filter(year >= start_year))
+names(post_pred_ranks_gauss) <- ranks
+
+#saveRDS(post_pred_ranks_gauss, "mtgp_fits_homoskedastic.RDS")
 ```
 
 # Fit Gaussian GP with Covariates
 
 ```{r fit_mtgp_ho_ranks_cov, warning = F, message = F, cache = T, results = "hide"}
-ranks <- 1:7
 
-fit_ranks_gauss <- lapply(ranks, fit_mtgp_normal_cov, outcome = homicide,
-                    trt = treated,
-                    unit = State, time = year, t_int = 2007,
-                    cov=cov_data,
-                    data = crimes %>% filter(year >= start_year))
+FitFun <- function() {
+  ranks <- 1:7
+  fit_ranks_gauss <- lapply(ranks, fit_mtgp_normal_cov, outcome = homicide,
+                      trt = treated,
+                      unit = State, time = year, t_int = 2007,
+                      cov=cov_data,
+                      data = crimes %>% filter(year >= start_year))
+  return(fit_ranks_gauss)  
+}
+fit_ranks_gauss <- FitIfNotSaved(FitFun, "mtgp_fits_homoskedastic_adjusted.RDS", force=force_refit)
+
 
 pops <- make_stan_data(quo(homicide), quo(treated), quo(State), quo(year), 2007,
                        crimes %>% filter(year >= start_year))$pop
@@ -190,7 +197,7 @@ post_pred_ranks_gauss <- lapply(posts_gauss, get_post_pred_samples, unit = State
                           data = crimes %>% filter(year >= start_year))
 names(post_pred_ranks_gauss) <- ranks
 
-saveRDS(post_pred_ranks_gauss, "mtgp_fits_homoskedastic_adjusted.RDS")
+#saveRDS(post_pred_ranks_gauss, "mtgp_fits_homoskedastic_adjusted.RDS")
 ```
 
 # Fit Multi-Outcome 
@@ -198,10 +205,11 @@ saveRDS(post_pred_ranks_gauss, "mtgp_fits_homoskedastic_adjusted.RDS")
 ```{r fit_multioutcome, warning = F, message = F, cache = T, results = "hide"}
 df <- read_dta('../data/ucrthrough2018.dta')
 crimes_of_interest = c('homicide', 'aggravated_assault')
+pivot_names <- names(df)[4:ncol(df)]
 df %>%
     filter(year >= 1996) %>%
     filter(state_abbr != 'DC') %>%
-    pivot_longer(names(df)[4:ncol(df)], 'crimetype', values_to='count') %>%
+    pivot_longer(pivot_names, names_to='crimetype', values_to='count') %>%
     arrange(crimetype, state_abbr, year) %>%
     filter(crimetype %in% crimes_of_interest) -> crime_df
 
@@ -215,26 +223,26 @@ df %>%
         values_from=population
     ) -> pop_wide_df
 
-X = pop_wide_df$year
-populations = as.matrix(pop_wide_df[,2:ncol(pop_wide_df)])
-N = nrow(pop_wide_df)
-D = ncol(pop_wide_df) - 1
-Y = t(matrix(crime_df$count, N * D, length(crimes_of_interest)))
+X <- pop_wide_df$year
+populations <- as.matrix(pop_wide_df[,2:ncol(pop_wide_df)])
+N <- nrow(pop_wide_df)
+D <- ncol(pop_wide_df) - 1
+Y <- t(matrix(crime_df$count, N * D, length(crimes_of_interest)))
 
 # CA is the treated unit
-treatment_idx = which(colnames(pop_wide_df) == 'CA') - 1
+treatment_idx <- which(colnames(pop_wide_df) == 'CA') - 1
 # Assuming 2006 is the treatment year
 # First treated year is 2007
-treatment_time = which(X == 2007)
+treatment_time <- which(X == 2007)
 
 # construct an indexing matrix for the untreated observations
-excluded_indices = matrix(
+excluded_indices <- matrix(
         1:length(populations), nrow(populations), ncol(populations)
     )[treatment_time:nrow(Y),treatment_idx]
 control_indices = (1:length(populations))[-excluded_indices]
 
 filebf0 = 'stan/mt_gp_pois_multioutput.stan'
-model_gpbffg <- cmdstan_model(stan_file = filebf0, include_paths = ".")
+model_gpbffg <- cmdstan_model(stan_file = filebf0, include_paths = ".", quiet=FALSE)
 standata_gpbffg <- list(x=X,
                         y=Y,
                         N=N,
