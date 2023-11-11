@@ -35,7 +35,7 @@ end_year <- 2018
 
 t_int <- 2007
 
-include("fit_models_lib.R")
+source("fit_models_lib.R")
 
 # Read crime data
 

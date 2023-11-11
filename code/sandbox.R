@@ -38,8 +38,6 @@ if(start_year < 1995) {
 # Poisson model
 
 
-
-
 # ranks gets passed to the argument n_k_f (by omission)
 # Recall that n_k_f is the rank of the time dependence kernel
 fit_pois <-
@@ -50,6 +48,8 @@ fit_pois <-
     unit = State, time = year, t_int = 2007,
     data = crimes %>% filter(year >= start_year)
   )
+
+
 
 
 pops <- make_stan_data(
