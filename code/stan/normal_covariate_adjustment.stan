@@ -25,7 +25,7 @@ parameters {
   real<lower=0> sigma_f;       // scale of f
   real<lower=0> sigman;
   // vector[num_covariates] cov_beta[D];
-  array[num_covariates] vector[D] cov_beta;
+  array[D] vector[num_covariates] cov_beta;
   vector[D] state_offset;
   vector[N] z_global;
   matrix[N, n_k_f] z_f;

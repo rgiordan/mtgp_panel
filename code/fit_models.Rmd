@@ -90,6 +90,7 @@ FitIfNotSaved <- function(fit_fun, filename, force=FALSE) {
 # Test
 #foo <- FitIfNotSaved(function() { return(1) }, "/tmp/test.RDS", force=FALSE)
 
+ranks <- 5:6
 force_refit <- TRUE
 
 ```
@@ -99,7 +100,6 @@ force_refit <- TRUE
 
 ```{r fit_mtgp_pois_ranks, warning = F, message = F, cache = T, results = "hide"}
 FitFun <- function() {
-  ranks <- 0:7
   fit_ranks_pois <- lapply(ranks, fit_mtgp_pois, outcome = homicide,
                            trt = treated,
                            unit = State, time = year, t_int = 2007,
@@ -125,7 +125,6 @@ print(pred_time) # Not too long compared with MCMC
 ```{r fit_mtgp_pois_ranks_cov, warning = F, message = F, cache = T, results = "hide"}
 
 FitFun <- function() {
-  ranks <- 0:7
   fit_ranks_pois <- lapply(ranks, fit_mtgp_pois_cov, outcome = homicide,
                       trt = treated,
                       unit = State, time = year, t_int = 2007,
@@ -175,7 +174,6 @@ names(post_pred_ranks_gauss) <- ranks
 ```{r fit_mtgp_ho_ranks_cov, warning = F, message = F, cache = T, results = "hide"}
 
 FitFun <- function() {
-  ranks <- 1:7
   fit_ranks_gauss <- lapply(ranks, fit_mtgp_normal_cov, outcome = homicide,
                       trt = treated,
                       unit = State, time = year, t_int = 2007,
@@ -184,7 +182,7 @@ FitFun <- function() {
   return(fit_ranks_gauss)  
 }
 fit_ranks_gauss <- FitIfNotSaved(FitFun, "mtgp_fits_homoskedastic_adjusted.RDS", force=force_refit)
-
+#fit_ranks_gauss[[1]]$output(1)
 
 pops <- make_stan_data(quo(homicide), quo(treated), quo(State), quo(year), 2007,
                        crimes %>% filter(year >= start_year))$pop
