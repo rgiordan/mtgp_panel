@@ -30,7 +30,7 @@ parameters {
   matrix[n_k_f, D] k_f;
   real intercept;
   
-  array[num_covariates] vector[D] cov_beta;
+  array[D] vector[num_covariates] cov_beta;
 }
 model {
   // covariances and Cholesky decompositions

@@ -90,7 +90,7 @@ FitIfNotSaved <- function(fit_fun, filename, force=FALSE) {
 # Test
 #foo <- FitIfNotSaved(function() { return(1) }, "/tmp/test.RDS", force=FALSE)
 
-force_refit <- FALSE
+force_refit <- TRUE
 
 ```
 
@@ -98,7 +98,6 @@ force_refit <- FALSE
 # Fit Poisson GP
 
 ```{r fit_mtgp_pois_ranks, warning = F, message = F, cache = T, results = "hide"}
-
 FitFun <- function() {
   ranks <- 0:7
   fit_ranks_pois <- lapply(ranks, fit_mtgp_pois, outcome = homicide,

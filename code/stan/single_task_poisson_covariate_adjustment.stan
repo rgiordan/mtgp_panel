@@ -23,7 +23,7 @@ parameters {
   vector[N] z_global;
   row_vector[D] state_offset;
   real intercept;
-  array[num_covariates] vector[D] cov_beta;
+  array[D] vector[num_covariates] cov_beta;
 }
 model {
   matrix[N, N] K_global = gp_exp_quad_cov(xn, sigma_global, lengthscale_global);
