@@ -51,6 +51,73 @@ fit_pois <-
 
 
 
+model <- cmdstan_model(stan_file = 'stan/single_task_poisson.stan',
+                       include_paths = ".")
+data <- crimes %>% filter(year >= start_year)
+
+
+foo <- function(time, data) {
+  # x is vector of times
+  x <- data %>% distinct(!!time) %>% pull(!!time)
+  #x <- data %>% select(!!time) %>% distinct() %>% pull(!!time)
+  return(x)
+}
+#debug(foo)
+
+# https://adv-r.hadley.nz/quasiquotation.html
+#foo(time="year", data=data)
+foo(time=quo(year), data=data)
+
+
+time <- "year"
+x <- data %>% select(!!time) %>% distinct() %>% pull(!!time)
+out <- augsynth:::format_data(
+  quo(homicide), 
+  quo(treated),
+  quo(State),
+  quo(year),
+  t_int, data)
+
+out$X
+
+data$State %>% unique() 
+
+source("fit_models_lib.R")
+#debug(make_stan_data)
+out <- make_stan_data(
+  outcome=quo(homicide),
+  trt=quo(treated),
+  unit=quo(State),
+  time=quo(year), 
+  t_int=2007, 
+  data=data)
+
+
+time <- "year"
+data %>% pull(!!time)
+
+
+n_k_f <- 2
+samples <- 1000
+chains <- 4
+
+standata <- list(x = out$x,
+                 y = c(out$y),
+                 population = out$pop,
+                 N = length(out$x),
+                 D = ncol(out$y),
+                 n_k_f = n_k_f,
+                 control_idx = out$control_idx,
+                 num_treated = length(out$y) - length(out$control_idx)
+)
+# sample from model
+fit <- model$sample(data = standata,
+                    iter_warmup = samples,
+                    iter_sampling = samples,
+                    chains = chains)
+
+
+
 
 pops <- make_stan_data(
   quo(homicide), quo(treated), quo(State), quo(year), 2007,

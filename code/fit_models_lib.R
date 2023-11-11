@@ -1,21 +1,45 @@
 make_stan_data <- function(outcome, trt, unit, time, t_int, data) {
+  # outcome: Column reference (within data)
+  # trt: ^
+  # unit: ^
+  # time: ^
+  # t_int: Int
+  # data: data frame
   
-  # x is vector of times
-  x <- data %>% distinct(!!time) %>% pull(!!time)
-  
+  # x is vector of distinct times
+  #x <- data %>% distinct(!!time) %>% pull(!!time)
+
   out <- augsynth:::format_data(outcome, trt, unit, time,
                                 t_int, data)
   
-  pop <- augsynth:::format_data(quo(Population), trt, unit, time,
+  pop_augsynth <- augsynth:::format_data(quo(Population), trt, unit, time,
                                 t_int, data)
-  # rows of y are time periods, columns units
+  # rows of y are time periods, columns units.  Combine the augsynth
+  # results.
   y <- t(cbind(out$X, out$y))
-  pop <- t(cbind(pop$X, pop$y))
-  # get the heldout indices
-  excl_idx <- matrix(1:length(y), nrow(y), ncol(y))[x >= t_int, out$trt == 1]
+  pop <- t(cbind(pop_augsynth$X, pop_augsynth$y))
+  
+  GetAugsynthColnames <- function(out) { c(colnames(out$X), colnames(out$y)) }
+  x <- as.integer(GetAugsynthColnames(out)) # distinct times
+
+  stopifnot(all(GetAugsynthColnames(out) == GetAugsynthColnames(pop_augsynth)))
+  stopifnot(all(dim(out) == dim(pop)))
+  stopifnot(length(out$trt) == ncol(y))
+  
+  # get the heldout indices.
+  # For this to work, we require that
+  # - The matrix is vectorized column-wise (as done in R)
+  # - The unique times x correspond to the columns of y
+  # - The out$trt corresponds to the columns of y in the same order
+  #   (this last assumption relies on the tidyverse operations in
+  #   augsynth:::format_data preserving the order of the unit column)
+  y_inds <- matrix(1:length(y), nrow(y), ncol(y))
+  stopifnot(all(as.vector(out$y) == out$y[out$y_inds]))
+  
+  excl_idx <- y_inds[x >= t_int, out$trt == 1]
   cntrl_idx <- (1:length(y))[-excl_idx]
-  treated_idx = which(out$trt == 1)
-  return(list(x = x, y = y, control_idx = cntrl_idx, pop = pop, treated_idx=treated_idx))
+  treated_idx <- which(out$trt == 1)
+  return(list(x = x, y = y, y_inds = y_inds, control_idx = cntrl_idx, pop = pop, treated_idx=treated_idx))
 }
 
 
@@ -69,11 +93,7 @@ fit_mtgp_normal <- function(outcome, trt, unit, time, t_int, data, n_k_f,
   # sample from model
   fit <- model$sample(data = standata,
                       iter_warmup = iter_warmup,
-                      iter_sampling = iter_sampling,
-                      chains = chains,
-                      parallel_chains = parallel_chains,
-                      adapt_delta = adapt_delta,
-                      max_treedepth = max_treedepth)
+                      iter_sampling = iter_sampling)
   return(fit)
 }
 
