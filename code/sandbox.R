@@ -62,6 +62,5 @@ post_pred_pois <- get_post_pred_samples(
   time=year,
   data = crimes %>% filter(year >= start_year))
 
-saveRDS(fit_ranks_pois, "sandbox_mtgp_fits_poisson.RDS")
 
 
