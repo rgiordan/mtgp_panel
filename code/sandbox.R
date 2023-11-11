@@ -117,21 +117,55 @@ fit_pois <- model$sample(data = standata,
                     chains = chains)
 
 
+f_draws <-
+  as_draws_df(fit_pois$draws(variables="f")) %>%
+  pivot_longer(cols=c(-.chain, -.iteration, -.draw),
+               names_to="f")
+head(f_draws)
 
 
-# pops <- make_stan_data(
-#   quo(homicide), quo(treated), quo(State), quo(year), 2007,
-#   crimes %>% filter(year >= start_year))$pop
+# Tidybayes is a better way to do this.
+library(tidybayes)
 
-posts_pois <- get_posterior_pois(fit_pois)
-post_pred_pois <- get_post_pred_samples(
-  posts_pois,
-  unit=State, 
-  time=year,
-  data = crimes %>% filter(year >= start_year))
+year_index <- data %>%
+  distinct(year) %>%
+  mutate(year_ind=1:n())
 
-ggplot(post_pred_pois %>% filter(State == "CA")) +
-  geom_histogram(aes(x=y)) +
-  geom_vline(aes(xintercept=homicide), color="red", data=filter(data, State == "CA")) +
-  facet_grid(year ~ State)
+state_index <- data %>%
+  distinct(State) %>%
+  mutate(state_ind=1:n())
 
+f_draws <-
+  fit_pois %>%
+  spread_draws(f[year_ind, state_ind]) %>%
+  left_join(state_index, "state_ind") %>%
+  left_join(year_index, "year_ind") %>%
+  ungroup() %>%
+  group_by(.chain, .iteration, .draw, State, year) %>%
+  mutate(pois_draw=rpois(n=1, lambda=f)) %>%
+  ungroup()
+head(f_draws)
+
+stopifnot(!any(is.na(f_draws$State)))
+stopifnot(!any(is.na(f_draws$year)))
+
+if (FALSE) {
+  # Visually check mixing
+  ggplot(f_draws %>% filter(State == "IL", year == 1997)) +
+    geom_line(aes(x=.draw, y=f, color=.chain))
+}
+
+
+State <- "CA"
+plot_data <-
+  inner_join(
+    filter(data, State == !!State) %>%
+      select(year, State, homicide),
+    filter(f_draws, State == !!State) %>%
+      select(year, State, f, pois_draw),
+    by=c("year", "State")
+  )
+ggplot(plot_data) +
+  geom_line(aes(x=year, y=homicide)) +
+  geom_point(aes(x=year, y=pois_draw), alpha=0.1) +
+  geom_vline(aes(xintercept=2007), color="red")
