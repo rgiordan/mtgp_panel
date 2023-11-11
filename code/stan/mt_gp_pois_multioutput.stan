@@ -23,9 +23,8 @@ parameters {
 
   real<lower=0> lengthscale_global;
   real<lower=0> sigma_global;
-  //cholesky_factor_corr[num_outcomes] global_cov;
   //vector[N] z_global[num_outcomes];
-  array[N] vector[num_outcomes] z_global;
+  array[num_outcomes] vector[N] z_global;
 
   matrix[N, n_k_f] z_f;
   //matrix[n_k_f, n_k_d] k_f[num_outcomes];

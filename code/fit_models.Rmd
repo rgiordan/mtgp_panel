@@ -255,9 +255,15 @@ standata_gpbffg <- list(x=X,
                         num_treated=length(excluded_indices)
                         )
 
-fit_gpcovfg <- model_gpbffg$sample(data=standata_gpbffg,
-                                  iter_warmup=500, iter_sampling=500,
-                                  chains=4, parallel_chains=4, adapt_delta=0.9, max_treedepth = 13)
+FitFun <- function() {
+  fit_gpcovfg <- model_gpbffg$sample(
+    data=standata_gpbffg,
+    iter_warmup=500, iter_sampling=500,
+    chains=4, parallel_chains=4, adapt_delta=0.9, max_treedepth = 13)
+  return(fit_gpcovfg)
+}
+fit_gpcovfg <- FitIfNotSaved(FitFun, "mtgp_fit_multi.RDS", force=force_refit)
+#saveRDS(draws_gpcovf_m, "mtgp_fit_multi.RDS")
 
 draws_gpcovf <- fit_gpcovfg$draws()
 print(summarise_draws(subset(draws_gpcovf, variable=c('sigma_','lengthscale_', 'f_'),
@@ -268,5 +274,4 @@ draws_gpcovf_m <- as_draws_matrix(draws_gpcovf)
 #Ef = matrix(colMeans(subset(draws_gpcovf_m, variable='f_star')), nrow(Y), ncol(Y))
 #sigma <- sqrt(matrix(colMeans(subset(draws_gpcovf_m, variable='f_star')), nrow(Y), ncol(Y)))
 
-saveRDS(draws_gpcovf_m, "mtgp_fit_multi.RDS")
 ```
