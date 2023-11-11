@@ -97,9 +97,9 @@ time <- "year"
 data %>% pull(!!time)
 
 
-n_k_f <- 2
-samples <- 1000
-chains <- 4
+n_k_f <- 7
+samples <- 500
+chains <- 1
 
 standata <- list(x = out$x,
                  y = c(out$y),
@@ -111,7 +111,7 @@ standata <- list(x = out$x,
                  num_treated = length(out$y) - length(out$control_idx)
 )
 # sample from model
-fit <- model$sample(data = standata,
+fit_pois <- model$sample(data = standata,
                     iter_warmup = samples,
                     iter_sampling = samples,
                     chains = chains)
@@ -119,9 +119,10 @@ fit <- model$sample(data = standata,
 
 
 
-pops <- make_stan_data(
-  quo(homicide), quo(treated), quo(State), quo(year), 2007,
-  crimes %>% filter(year >= start_year))$pop
+# pops <- make_stan_data(
+#   quo(homicide), quo(treated), quo(State), quo(year), 2007,
+#   crimes %>% filter(year >= start_year))$pop
+
 posts_pois <- get_posterior_pois(fit_pois)
 post_pred_pois <- get_post_pred_samples(
   posts_pois,
@@ -129,5 +130,8 @@ post_pred_pois <- get_post_pred_samples(
   time=year,
   data = crimes %>% filter(year >= start_year))
 
-
+ggplot(post_pred_pois %>% filter(State == "CA")) +
+  geom_histogram(aes(x=y)) +
+  geom_vline(aes(xintercept=homicide), color="red", data=filter(data, State == "CA")) +
+  facet_grid(year ~ State)
 
