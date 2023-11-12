@@ -8,30 +8,13 @@ library(augsynth)
 setwd("/home/rgiordan/Documents/git_repos/replication/mtgp_panel/code")
 source("fit_models_lib.R")
 
+#Sys.setenv(STAN_NUM_THREADS=4)
+
 start_year <- 1997
 end_year <- 2018
 t_int <- 2007
 
-
-read_dta("../data/ucrthrough2018.dta") %>%
-  mutate(across(c(violent_crime, homicide, rape_legacy, rape_revised, robbery,
-                  aggravated_assault, property_crime, burglary, larceny,
-                  motor_vehicle_theft),
-                as.integer)) %>%
-  rename(State = state_abbr, rape_rate = rape_legacy_rate, 
-         murder_rate = homicide_rate, violent_rate = violent_crime_rate,
-         assault_rate = aggravated_assault_rate,
-         property_rate = property_crime_rate,
-         mvt_rate = motor_vehicle_theft_rate, 
-         Population = population) %>%
-  filter(State != "DC") %>%
-  # drop rape rate after 2015 since it switches to new definition
-  mutate(rape_rate = ifelse(year > 2016, NA, rape_rate),
-         treated = State == "CA", trt = treated * (year >= 2007)) -> crimes
-
-if(start_year < 1995) {
-  crimes <- crimes %>% filter(State != "MS")
-}
+crimes <- load_crimes_data(start_year, end_year, t_int)
 
 
 ###################
@@ -40,19 +23,22 @@ if(start_year < 1995) {
 
 # ranks gets passed to the argument n_k_f (by omission)
 # Recall that n_k_f is the rank of the time dependence kernel
-fit_pois <-
-  fit_mtgp_pois(
-    n_k_f=5,
-    outcome = homicide,
-    trt = treated,
-    unit = State, time = year, t_int = 2007,
-    data = crimes %>% filter(year >= start_year)
-  )
+# fit_pois <-
+#   fit_mtgp_pois(
+#     n_k_f=5,
+#     outcome = homicide,
+#     trt = treated,
+#     unit = State, time = year, t_int = 2007,
+#     data = crimes %>% filter(year >= start_year)
+#   )
 
 
 
-model <- cmdstan_model(stan_file = 'stan/single_task_poisson.stan',
+#model <- cmdstan_model(stan_file = 'stan/single_task_poisson.stan',
+#                       include_paths = ".")
+model <- cmdstan_model(stan_file = 'stan/poisson.stan',
                        include_paths = ".")
+
 data <- crimes %>% filter(year >= start_year)
 
 
@@ -98,8 +84,8 @@ data %>% pull(!!time)
 
 
 n_k_f <- 7
-samples <- 500
-chains <- 1
+samples <- 4000
+chains <- 4
 
 standata <- list(x = out$x,
                  y = c(out$y),
@@ -110,22 +96,50 @@ standata <- list(x = out$x,
                  control_idx = out$control_idx,
                  num_treated = length(out$y) - length(out$control_idx)
 )
+
+
+options(mc.cores=4)
 # sample from model
-fit_pois <- model$sample(data = standata,
-                    iter_warmup = samples,
-                    iter_sampling = samples,
-                    chains = chains)
+fit_pois <- model$sample(
+  data = standata,
+  iter_warmup = samples,
+  iter_sampling = samples,
+  chains = chains,
+  parallel_chains = chains)
 
 
-f_draws <-
-  as_draws_df(fit_pois$draws(variables="f")) %>%
-  pivot_longer(cols=c(-.chain, -.iteration, -.draw),
-               names_to="f")
-head(f_draws)
+# f_draws <-
+#   as_draws_df(fit_pois$draws(variables="f")) %>%
+#   pivot_longer(cols=c(-.chain, -.iteration, -.draw),
+#                names_to="f")
+# head(f_draws)
 
 
-# Tidybayes is a better way to do this.
+# Tidybayes is a another way to do the posterior and post predictive.
 library(tidybayes)
+library(GGally)
+
+
+par_draws <-
+  fit_pois %>%
+  spread_draws(lengthscale_global, sigma_global, intercept, lp__) 
+
+ggpairs(par_draws, columns=c("lengthscale_global", "sigma_global", "intercept", "lp__"))
+
+par_draws_long <-
+  fit_pois %>%
+  gather_draws(lengthscale_global, sigma_global, intercept, lp__) 
+
+# Why is lp__ discretized?  Numeric precision problems?
+ggplot(par_draws_long) +
+  geom_line(aes(x=.iteration, y=.value, color=.chain)) +
+  facet_grid(.variable ~ ., scales="free")
+
+
+fit_pois$draws(variables="lp__")
+
+###########
+# f draws
 
 year_index <- data %>%
   distinct(year) %>%

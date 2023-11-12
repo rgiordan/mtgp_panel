@@ -1,3 +1,30 @@
+
+
+# Read crime data
+load_crimes_data <- function(start_year=1997, end_year=2018, t_int=2007) {
+  read_dta("../data/ucrthrough2018.dta") %>%
+    mutate(across(c(violent_crime, homicide, rape_legacy, rape_revised, robbery,
+                    aggravated_assault, property_crime, burglary, larceny,
+                    motor_vehicle_theft),
+                  as.integer)) %>%
+    rename(State = state_abbr, rape_rate = rape_legacy_rate, 
+           murder_rate = homicide_rate, violent_rate = violent_crime_rate,
+           assault_rate = aggravated_assault_rate,
+           property_rate = property_crime_rate,
+           mvt_rate = motor_vehicle_theft_rate, 
+           Population = population) %>%
+    filter(State != "DC") %>%
+    # drop rape rate after 2015 since it switches to new definition
+    mutate(rape_rate = ifelse(year > 2016, NA, rape_rate),
+           treated = State == "CA", trt = treated * (year >= 2007)) -> crimes
+  
+  if(start_year < 1995) {
+    crimes <- crimes %>% filter(State != "MS")
+  }
+  return(crimes)
+}
+
+
 make_stan_data <- function(outcome, trt, unit, time, t_int, data) {
   # outcome: Column reference (within data)
   # trt: ^
